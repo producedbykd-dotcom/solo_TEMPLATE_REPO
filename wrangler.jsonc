@@ -10,6 +10,13 @@
   "observability": {
     "enabled": true
   },
+  // Cloudflare's one-click deploy only runs `wrangler deploy`, so the build has
+  // to happen here. The VITE_* copies are what gets baked into the browser
+  // bundle — we mirror them from the values you paste below so you only ever
+  // fill each one in once.
+  "build": {
+    "command": "npm install --no-audit --no-fund && VITE_SUPABASE_URL=\"${VITE_SUPABASE_URL:-$SUPABASE_URL}\" VITE_SUPABASE_PUBLISHABLE_KEY=\"${VITE_SUPABASE_PUBLISHABLE_KEY:-$SUPABASE_PUBLISHABLE_KEY}\" npm run build"
+  },
   // Values Cloudflare prompts for during a one-click deploy. Fill them in with
   // your own Supabase project and your own Google Gemini key — they stay in
   // your account and never touch anyone else's servers.
@@ -17,6 +24,8 @@
     "SUPABASE_URL": "",
     "SUPABASE_PUBLISHABLE_KEY": "",
     "SUPABASE_SERVICE_ROLE_KEY": "",
-    "GOOGLE_GENERATIVE_AI_API_KEY": ""
+    "GOOGLE_GENERATIVE_AI_API_KEY": "",
+    "VITE_SUPABASE_URL": "",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": ""
   }
 }

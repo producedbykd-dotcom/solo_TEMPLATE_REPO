@@ -33,11 +33,20 @@ Starting cost: **$0/month.** Busy month: **about $25–30.**
    **Deploy to Cloudflare**. Cloudflare copies this repo into your account,
    builds it and puts it online — all in the browser.
 2. When Cloudflare asks for variables, paste your Supabase URL, keys and your
-   Google Gemini key. You can also add them later under
-   **Workers → your project → Settings → Variables and Secrets**.
+   Google Gemini key **before** the first build. Cloudflare builds the app from
+   source, and the Supabase URL and publishable key are baked into the browser
+   bundle, so those two must be filled in at this point. Optional platform keys
+   (YouTube, Meta, TikTok, SoundCloud) can be added later under
+   **Workers → your project → Settings → Variables and Secrets** with no rebuild.
+   If you ever change your Supabase project, add the new values and click
+   **Retry deployment** so the browser bundle is rebuilt.
 3. Open your new site at `/setup`. That wizard verifies your keys, hands you
    one block of SQL to paste into the Supabase SQL editor, creates your storage
    buckets and creates your owner login. It closes itself for good afterwards.
+
+> The build itself is defined in `wrangler.jsonc` (`build.command`), so
+> `wrangler deploy` installs dependencies and runs `vite build` before it
+> uploads. Nothing to run on your own machine.
 
 ---
 
