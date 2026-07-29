@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "release-engine-solo",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2025-05-05",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".output/public"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Values Cloudflare prompts for during a one-click deploy. Fill them in with
+  // your own Supabase project and your own Google Gemini key — they stay in
+  // your account and never touch anyone else's servers.
+  "vars": {
+    "SUPABASE_URL": "",
+    "SUPABASE_PUBLISHABLE_KEY": "",
+    "SUPABASE_SERVICE_ROLE_KEY": "",
+    "GOOGLE_GENERATIVE_AI_API_KEY": ""
+  }
+}

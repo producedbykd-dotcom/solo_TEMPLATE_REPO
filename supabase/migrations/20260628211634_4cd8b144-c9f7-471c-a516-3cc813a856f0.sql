@@ -1,0 +1,1 @@
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS integrated_lufs numeric, ADD COLUMN IF NOT EXISTS true_peak_dbtp numeric;

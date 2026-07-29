@@ -1,0 +1,1 @@
+ALTER TYPE public.social_platform ADD VALUE IF NOT EXISTS 'soundcloud';

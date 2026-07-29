@@ -1,0 +1,1 @@
+CREATE POLICY "deny client access to sc pkce" ON public.soundcloud_oauth_pkce FOR ALL TO authenticated, anon USING (false) WITH CHECK (false);
