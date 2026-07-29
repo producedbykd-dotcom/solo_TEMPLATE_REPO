@@ -1,4 +1,4 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useSearch, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Youtube, Instagram, Facebook, Loader2, CheckCircle2, Cloud, Radio, Megaphone, Store, Info } from "lucide-react";
@@ -305,23 +305,20 @@ function ConnectionsPage() {
           </div>
         </div>
 
-        {/* My Music Store — moved here so the primary grid has an even card count */}
-        <div className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-card/40 p-5">
+        {/* My Music Store — live: links to the storefront setup page */}
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-card/40 p-5">
           <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-background">
             <Store className="h-5 w-5 text-emerald-400" />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h3 className="font-display text-lg">My Music Store</h3>
-              <span className="rounded-full border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                Coming soon
-              </span>
             </div>
             <p className="text-sm text-muted-foreground">
               Sell your music directly to fans — albums, singles, leases, exclusives, merch and more.
             </p>
-            <Button size="sm" variant="outline" className="mt-3" onClick={() => setNotify({ platform: "music_store", label: "My Music Store", certifier: "Release Engine" })}>
-              Notify me
+            <Button size="sm" variant="outline" className="mt-3" asChild>
+              <Link to="/store">Set up my store</Link>
             </Button>
           </div>
         </div>
