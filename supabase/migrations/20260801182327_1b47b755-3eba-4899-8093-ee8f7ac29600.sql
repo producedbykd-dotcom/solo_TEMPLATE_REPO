@@ -1,0 +1,2 @@
+UPDATE public.subscriptions SET tier='pro', interval='monthly', status='active', kind='subscription', canceled_at=NULL, current_period_start=now(), current_period_end=now()+interval '1 month', uploads_this_period=0, updated_at=now()
+WHERE user_id=(SELECT id FROM auth.users WHERE lower(email)='akbeatz73@gmail.com');
