@@ -209,6 +209,29 @@ export const renameProject = createServerFn({ method: "POST" })
     return { project: updated };
   });
 
+/** Swap the master audio for an existing release. Analysis, keywords, metadata
+ *  and artwork are all left untouched — this only points the project at the new
+ *  file so videos can be re-rendered and shipped again. */
+export const replaceProjectAudio = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: { id: string; storagePath: string; durationSec?: number | null }) => {
+    if (!d?.id) throw new Error("id required");
+    if (!d?.storagePath) throw new Error("storagePath required");
+    return { id: d.id, storagePath: d.storagePath, durationSec: d.durationSec ?? null };
+  })
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = {
+      primary_audio_path: data.storagePath,
+      analysis_audio_path: null,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.durationSec != null) patch["duration_sec"] = data.durationSec;
+    const { data: updated, error } = await (context.supabase.from("projects") as any)
+      .update(patch).eq("id", data.id).select("*").maybeSingle();
+    if (error) throw new Error(error.message);
+    return { project: updated };
+  });
+
 export const deleteProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: { id: string }) => {

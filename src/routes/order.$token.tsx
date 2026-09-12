@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { getOrder } from "@/lib/storefront.functions";
 import { Button } from "@/components/ui/button";
-import { money, TIER_LABEL, type TierKind } from "@/lib/store/pricing";
+import { money, tierLabel } from "@/lib/store/pricing";
 import { CheckCircle2, Clock, Download, FileText, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/order/$token")({
@@ -74,7 +74,7 @@ function OrderPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium">{it.title}</p>
-                <p className="text-xs text-muted-foreground">{TIER_LABEL[it.tierKind as TierKind] ?? it.tierKind}</p>
+                <p className="text-xs text-muted-foreground">{tierLabel(it.tierKind, (it as { tierLabel?: string | null }).tierLabel)}</p>
               </div>
               <span className="text-sm">{it.priceCents === 0 ? "FREE" : money(it.priceCents, order.currency)}</span>
             </div>

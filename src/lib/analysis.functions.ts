@@ -54,8 +54,8 @@ export const analyzeAudio = createServerFn({ method: "POST" })
     const audioRes = await fetch(signed.signedUrl);
     if (!audioRes.ok) throw new Error(`Audio fetch failed (${audioRes.status})`);
     const buf = new Uint8Array(await audioRes.arrayBuffer());
-    // No size cap. aiChatDirect auto-uploads via Files API when the inline
-    // payload would exceed Gemini's ~20MB wire limit.
+    // Sent inline as an audio part through the Lovable AI Gateway.
+
     let bin = "";
     for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
     const b64 = btoa(bin);

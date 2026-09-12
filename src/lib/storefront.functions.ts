@@ -28,7 +28,7 @@ export const getStorefront = createServerFn({ method: "GET" })
     const sb = publicSupabase();
     const { data: store } = await sb
       .from("stores")
-      .select("id, handle, display_name, bio, accent, logo_path, currency, published, theme")
+      .select("id, handle, display_name, headline, bio, accent, logo_path, currency, published, theme, preview_mode")
       .eq("handle", data.handle)
       .eq("published", true)
       .maybeSingle();
@@ -37,13 +37,13 @@ export const getStorefront = createServerFn({ method: "GET" })
     const s = store as AnyRow;
     const { data: products } = await sb
       .from("store_products")
-      .select("id, title, description, kind, artwork_path, free_download_enabled, position, audio_path")
+      .select("id, title, description, kind, artwork_path, free_download_enabled, position, audio_path, preview_mode")
       .eq("store_id", s.id).eq("active", true).order("position");
 
     const ids = (products ?? []).map((p: AnyRow) => p.id);
     const { data: tiers } = ids.length
       ? await sb.from("product_tiers")
-          .select("id, product_id, kind, price_cents, stream_limit, distribution_limit, video_limit, term_months")
+          .select("id, product_id, kind, price_cents, stream_limit, distribution_limit, video_limit, term_months, custom_label")
           .in("product_id", ids).eq("active", true)
       : { data: [] as AnyRow[] };
 
@@ -61,6 +61,7 @@ export const getStorefront = createServerFn({ method: "GET" })
       kind: p.kind as string,
       freeDownload: !!p.free_download_enabled,
       previewUrl: p.audio_path ? `/api/public/store/preview?p=${p.id}` : null,
+      previewMode: ((p.preview_mode ?? (s as AnyRow).preview_mode ?? "clip") === "tagged" ? "tagged" : "clip") as "tagged" | "clip",
       artworkUrl: await sign("store", p.artwork_path, 7200),
       tiers: (tiers ?? [])
         .filter((t: AnyRow) => t.product_id === p.id)
@@ -72,6 +73,7 @@ export const getStorefront = createServerFn({ method: "GET" })
         id: s.id as string,
         handle: s.handle as string,
         name: s.display_name as string,
+        headline: (s.headline ?? null) as string | null,
         bio: (s.bio ?? null) as string | null,
         accent: (s.accent ?? "#7c3aed") as string,
         currency: (s.currency ?? "USD") as string,
@@ -126,7 +128,7 @@ async function resolveCart(
   const { data: products } = await sb
     .from("store_products").select("id, title, store_id").in("id", productIds).eq("active", true);
   const { data: tiers } = await sb
-    .from("product_tiers").select("id, product_id, kind, price_cents").in("id", items.map((i) => i.tierId)).eq("active", true);
+    .from("product_tiers").select("id, product_id, kind, price_cents, custom_label").in("id", items.map((i) => i.tierId)).eq("active", true);
 
   const lines: CartLine[] = [];
   for (const item of items) {
@@ -135,7 +137,8 @@ async function resolveCart(
     if (!p || !t || p.store_id !== s.id) throw new Error("One of the items is no longer available.");
     lines.push({
       productId: p.id, tierId: t.id, title: p.title,
-      tierKind: t.kind as TierKind, unitPriceCents: t.price_cents as number,
+      tierKind: t.kind as TierKind, tierLabel: (t.custom_label as string | null) ?? null,
+      unitPriceCents: t.price_cents as number,
     });
   }
 
@@ -194,7 +197,7 @@ export const startCheckout = createServerFn({ method: "POST" })
     const orderId = (order as AnyRow).id as string;
     const { data: tierRows } = await supabaseAdmin
       .from("product_tiers")
-      .select("id, kind, price_cents, stream_limit, distribution_limit, video_limit, term_months, extra_terms")
+      .select("id, kind, price_cents, stream_limit, distribution_limit, video_limit, term_months, extra_terms, custom_label, license_text")
       .in("id", totals.lines.map((l) => l.tierId));
 
     await (supabaseAdmin.from("store_order_items") as any).insert(
@@ -214,6 +217,8 @@ export const startCheckout = createServerFn({ method: "POST" })
             video_limit: t?.video_limit ?? null,
             term_months: t?.term_months ?? null,
             extra_terms: t?.extra_terms ?? null,
+            custom_label: t?.custom_label ?? null,
+            license_text: t?.license_text ?? null,
           },
         };
       }),
@@ -249,7 +254,10 @@ export const startCheckout = createServerFn({ method: "POST" })
       orderToken: token,
       items: totals.lines
         .filter((l) => l.priceCents > 0)
-        .map((l) => ({ name: `${l.title} (${l.tierKind.replace("_", "-")})`, amountCents: l.priceCents })),
+        .map((l) => ({
+          name: `${l.title} (${l.tierKind === "custom" ? (l.tierLabel || "custom licence") : l.tierKind.replace("_", "-")})`,
+          amountCents: l.priceCents,
+        })),
       returnUrl: `${origin}/order/${token}`,
       cancelUrl: `${origin}/store/${data.handle}`,
       notifyUrl: `${origin}/api/public/paypal/ipn`,
@@ -285,6 +293,7 @@ export const getOrder = createServerFn({ method: "GET" })
         id: it.id as string,
         title: it.title as string,
         tierKind: it.tier_kind as TierKind,
+        tierLabel: ((it.terms_snapshot ?? {}) as AnyRow).custom_label ?? null,
         priceCents: it.price_cents as number,
         audioUrl,
         licenseUrl: paid ? await sign("store", it.license_pdf_path ?? null, 86400) : null,

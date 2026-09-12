@@ -386,10 +386,12 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          custom_label: string | null
           distribution_limit: number | null
           extra_terms: string | null
           id: string
           kind: string
+          license_text: string | null
           price_cents: number
           product_id: string
           sold_out: boolean
@@ -401,10 +403,12 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          custom_label?: string | null
           distribution_limit?: number | null
           extra_terms?: string | null
           id?: string
           kind: string
+          license_text?: string | null
           price_cents?: number
           product_id: string
           sold_out?: boolean
@@ -416,10 +420,12 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          custom_label?: string | null
           distribution_limit?: number | null
           extra_terms?: string | null
           id?: string
           kind?: string
+          license_text?: string | null
           price_cents?: number
           product_id?: string
           sold_out?: boolean
@@ -957,6 +963,74 @@ export type Database = {
         }
         Relationships: []
       }
+      square_checkout_intents: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          interval: string
+          payment_link_id: string | null
+          square_variation_id: string | null
+          tier: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          interval: string
+          payment_link_id?: string | null
+          square_variation_id?: string | null
+          tier: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          interval?: string
+          payment_link_id?: string | null
+          square_variation_id?: string | null
+          tier?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      store_license_templates: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          name: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          name: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          name?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_license_templates_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_membership_plans: {
         Row: {
           active: boolean
@@ -1158,6 +1232,7 @@ export type Database = {
           id: string
           kind: string
           position: number
+          preview_mode: string | null
           preview_path: string | null
           project_id: string | null
           store_id: string
@@ -1176,6 +1251,7 @@ export type Database = {
           id?: string
           kind?: string
           position?: number
+          preview_mode?: string | null
           preview_path?: string | null
           project_id?: string | null
           store_id: string
@@ -1194,6 +1270,7 @@ export type Database = {
           id?: string
           kind?: string
           position?: number
+          preview_mode?: string | null
           preview_path?: string | null
           project_id?: string | null
           store_id?: string
@@ -1229,6 +1306,8 @@ export type Database = {
           id: string
           percent: number
           scope: string
+          scope_kinds: string[] | null
+          scope_tier_ids: string[] | null
           store_id: string
           type: string
           updated_at: string
@@ -1244,6 +1323,8 @@ export type Database = {
           id?: string
           percent?: number
           scope?: string
+          scope_kinds?: string[] | null
+          scope_tier_ids?: string[] | null
           store_id: string
           type?: string
           updated_at?: string
@@ -1259,6 +1340,8 @@ export type Database = {
           id?: string
           percent?: number
           scope?: string
+          scope_kinds?: string[] | null
+          scope_tier_ids?: string[] | null
           store_id?: string
           type?: string
           updated_at?: string
@@ -1366,11 +1449,20 @@ export type Database = {
           currency: string
           display_name: string
           handle: string
+          headline: string | null
           id: string
           logo_path: string | null
           paypal_email: string | null
           paypal_verified_at: string | null
+          preview_mode: string
           published: boolean
+          tag_audio_path: string | null
+          tag_fx: Json | null
+          tag_gender: string | null
+          tag_phrase: string | null
+          tag_preset: string | null
+          tag_style: string | null
+          tag_voice: string | null
           theme: string
           updated_at: string
           user_id: string
@@ -1382,11 +1474,20 @@ export type Database = {
           currency?: string
           display_name?: string
           handle: string
+          headline?: string | null
           id?: string
           logo_path?: string | null
           paypal_email?: string | null
           paypal_verified_at?: string | null
+          preview_mode?: string
           published?: boolean
+          tag_audio_path?: string | null
+          tag_fx?: Json | null
+          tag_gender?: string | null
+          tag_phrase?: string | null
+          tag_preset?: string | null
+          tag_style?: string | null
+          tag_voice?: string | null
           theme?: string
           updated_at?: string
           user_id: string
@@ -1398,11 +1499,20 @@ export type Database = {
           currency?: string
           display_name?: string
           handle?: string
+          headline?: string | null
           id?: string
           logo_path?: string | null
           paypal_email?: string | null
           paypal_verified_at?: string | null
+          preview_mode?: string
           published?: boolean
+          tag_audio_path?: string | null
+          tag_fx?: Json | null
+          tag_gender?: string | null
+          tag_phrase?: string | null
+          tag_preset?: string | null
+          tag_style?: string | null
+          tag_voice?: string | null
           theme?: string
           updated_at?: string
           user_id?: string
@@ -1740,12 +1850,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1769,11 +1879,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1794,11 +1904,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1819,11 +1929,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1836,11 +1946,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

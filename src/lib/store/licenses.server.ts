@@ -16,6 +16,9 @@ export type LicenseTerms = {
 
 export type LicenseInput = {
   tierKind: TierKind;
+  /** For custom licences: the seller's licence name and pasted language. */
+  customLabel?: string | null;
+  licenseText?: string | null;
   trackTitle: string;
   buyerName: string;
   buyerEmail: string;
@@ -31,8 +34,39 @@ function limitText(n: number | null, unit: string): string {
   return `${n.toLocaleString("en-US")} ${unit}`;
 }
 
+/**
+ * Personalises seller-written licence language.
+ * Supported placeholders: {{buyer_name}}, {{buyer_email}}, {{producer_name}},
+ * {{track_title}}, {{price}}, {{date}}, {{order_id}}.
+ */
+export function fillPlaceholders(text: string, input: LicenseInput): string {
+  const map: Record<string, string> = {
+    buyer_name: input.buyerName,
+    licensee: input.buyerName,
+    buyer_email: input.buyerEmail,
+    producer_name: input.producerName,
+    producer: input.producerName,
+    track_title: input.trackTitle,
+    title: input.trackTitle,
+    price: input.pricePaid,
+    date: input.purchasedAt.toUTCString().slice(0, 16),
+    order_id: input.orderId.slice(0, 8).toUpperCase(),
+  };
+  return (text || "").replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (m, key: string) => map[key.toLowerCase()] ?? m);
+}
+
 function bodyFor(input: LicenseInput): { heading: string; clauses: string[] } {
   const { terms } = input;
+  if (input.tierKind === "custom") {
+    const heading = ((input.customLabel ?? "Custom licence").trim() || "Custom licence").toUpperCase() +
+      (/(licence|license|agreement)/i.test(input.customLabel ?? "") ? "" : " AGREEMENT");
+    const body = fillPlaceholders(input.licenseText ?? "", input);
+    const clauses = body
+      .split(/\n\s*\n/)
+      .map((para: string) => para.replace(/\s*\n\s*/g, " ").trim())
+      .filter(Boolean);
+    return { heading, clauses: clauses.length ? clauses : ["No licence language was supplied by the seller."] };
+  }
   const term = terms.termMonths ? `${terms.termMonths} months from the purchase date` : "perpetual";
   const common = [
     `1. GRANT. The Producer grants the Licensee ${input.tierKind === "exclusive" ? "an exclusive" : "a non-exclusive"}, worldwide licence to use the musical composition and sound recording titled "${input.trackTitle}" (the "Beat") subject to the terms below.`,

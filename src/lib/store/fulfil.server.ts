@@ -26,11 +26,13 @@ export async function fulfilOrder(orderId: string, payment: { txnId: string; pay
 
   for (const item of (items ?? []) as AnyRow[]) {
     const kind = item.tier_kind as TierKind;
-    if (kind !== "non_exclusive" && kind !== "exclusive") continue;
+    if (kind !== "non_exclusive" && kind !== "exclusive" && kind !== "custom") continue;
     try {
       const terms = (item.terms_snapshot ?? {}) as AnyRow;
       const pdf = await buildLicensePdf({
         tierKind: kind,
+        customLabel: terms.custom_label ?? null,
+        licenseText: terms.license_text ?? null,
         trackTitle: item.title,
         buyerName: o.buyer_name,
         buyerEmail: o.buyer_email,

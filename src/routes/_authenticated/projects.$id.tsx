@@ -8,7 +8,7 @@ import { researchKeywords, updateKeywords, suggestKeywordSeeds, type KeywordsPay
 import { discoverKeywordOpportunities, type KeywordOpportunity } from "@/lib/keywords.functions";
 import { generateMetadata, updateMetadata, type MetadataPayload } from "@/lib/metadata.functions";
 import { generateArtwork, generateArtworkPair, selectArtwork, addArtworkReference, removeArtworkReference, useOwnArtwork, type ArtworkPayload } from "@/lib/artwork.functions";
-import { renameProject, deleteProject, markAutoChainRan } from "@/lib/projects.functions";
+import { renameProject, deleteProject, markAutoChainRan, replaceProjectAudio } from "@/lib/projects.functions";
 import { researchMusicStats, type YoutubeMusicPayload } from "@/lib/youtube-music.functions";
 import { listIdentities, setProjectIdentity, createIdentityFromProject, type Identity } from "@/lib/identities.functions";
 import { recordLongformAsset } from "@/lib/longform.functions";
@@ -431,7 +431,7 @@ function SectionContent({
 }: { sectionKey: SectionKey; project: any; analysisRow: any; refresh: () => void }) {
   if (!project) return <p className="text-sm text-muted-foreground">Loading…</p>;
   switch (sectionKey) {
-    case "track":      return <TrackSection project={project} />;
+    case "track":      return <TrackSection project={project} refresh={refresh} />;
     case "analysis":   return <AnalysisSection project={project} row={analysisRow} refresh={refresh} />;
     case "keywords":   return <KeywordsSection project={project} refresh={refresh} />;
     case "metadata":   return <MetadataSection project={project} refresh={refresh} />;
@@ -455,8 +455,10 @@ function ComingSoon({ name }: { name: string }) {
   );
 }
 
-function TrackSection({ project }: { project: any }) {
+function TrackSection({ project, refresh }: { project: any; refresh: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
+  const replaceRef = useRef<HTMLInputElement | null>(null);
+  const [replacing, setReplacing] = useState(false);
   useEffect(() => {
     let active = true;
     (async () => {
@@ -468,6 +470,44 @@ function TrackSection({ project }: { project: any }) {
     })();
     return () => { active = false; };
   }, [project.primary_audio_path]);
+
+  async function onReplace(file: File) {
+    setReplacing(true);
+    setUrl(null);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      const ext = (file.name.split(".").pop() || "mp3").toLowerCase();
+      const path = `${uid}/${project.id}/audio-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("audio")
+        .upload(path, file, { contentType: file.type || "audio/mpeg", upsert: true });
+      if (upErr) throw new Error(upErr.message);
+
+      const durationSec = await new Promise<number | null>((resolve) => {
+        try {
+          const objectUrl = URL.createObjectURL(file);
+          const a = document.createElement("audio");
+          a.preload = "metadata";
+          a.src = objectUrl;
+          a.onloadedmetadata = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(Number.isFinite(a.duration) ? a.duration : null);
+          };
+          a.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(null); };
+        } catch { resolve(null); }
+      });
+
+      await replaceProjectAudio({ data: { id: project.id, storagePath: path, durationSec } });
+      toast.success("Audio replaced — re-render your videos to use the new version.");
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not replace audio");
+    } finally {
+      setReplacing(false);
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -487,8 +527,24 @@ function TrackSection({ project }: { project: any }) {
       {url ? (
         <audio src={url} controls className="w-full" />
       ) : (
-        <p className="text-xs text-muted-foreground">Loading audio…</p>
+        <p className="text-xs text-muted-foreground">{replacing ? "Uploading new audio…" : "Loading audio…"}</p>
       )}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background/40 p-3">
+        <input
+          ref={replaceRef}
+          type="file"
+          hidden
+          accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/flac,audio/aac,audio/mp4,audio/x-m4a"
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onReplace(f); }}
+        />
+        <Button variant="outline" size="sm" disabled={replacing} onClick={() => replaceRef.current?.click()}>
+          {replacing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-1.5 h-4 w-4" />}
+          Replace audio
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Swaps in a new mix or version. Nothing is re-analyzed — your analysis, keywords, metadata and artwork stay as they are. Re-render your video and shorts to use the new audio.
+        </p>
+      </div>
     </div>
   );
 }
@@ -1144,6 +1200,22 @@ function MetadataSection({ project, refresh }: { project: any; refresh: () => vo
                 </button>
               ))}
             </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Selected title (editable)</Label>
+              <CopyBtn text={draft.selectedTitle} />
+            </div>
+            <Input
+              value={draft.selectedTitle}
+              onChange={(e) => setDraft({ ...draft, selectedTitle: e.target.value })}
+              placeholder="Your final title"
+              className="mt-2 text-base font-semibold"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tweak the wording however you like — this exact title is what gets published. {draft.selectedTitle.length} characters
+              {draft.selectedTitle.length > 70 ? " (over 70 — YouTube may truncate it)" : ""}
+            </p>
           </div>
           <div>
             <div className="flex items-center justify-between">

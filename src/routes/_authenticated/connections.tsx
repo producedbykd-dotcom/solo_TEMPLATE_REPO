@@ -13,7 +13,10 @@ import { getSoundcloudAuthUrl, getSoundcloudConnectionInfo, disconnectSoundcloud
 import { NotifyMeDialog } from "@/components/NotifyMeDialog";
 
 export const Route = createFileRoute("/_authenticated/connections")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): {
+    youtube?: string; channel?: string; reason?: string; meta?: string;
+    tiktok?: string; soundcloud?: string; account?: string;
+  } => ({
     youtube: typeof s.youtube === "string" ? s.youtube : undefined,
     channel: typeof s.channel === "string" ? s.channel : undefined,
     reason: typeof s.reason === "string" ? s.reason : undefined,

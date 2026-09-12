@@ -6,14 +6,23 @@
  * PayPal charges. Never price a cart anywhere else.
  */
 
-export type TierKind = "single" | "album" | "non_exclusive" | "exclusive";
+export type TierKind = "single" | "album" | "non_exclusive" | "exclusive" | "custom";
 
 export const TIER_LABEL: Record<TierKind, string> = {
   single: "Single",
   album: "Album",
   non_exclusive: "Non-exclusive lease",
   exclusive: "Exclusive lease",
+  custom: "Custom licence",
 };
+
+export const TIER_KINDS: TierKind[] = ["single", "album", "non_exclusive", "exclusive", "custom"];
+
+/** Display name for a tier — custom licences use the seller's own wording. */
+export function tierLabel(kind: TierKind | string, customLabel?: string | null): string {
+  if (kind === "custom") return (customLabel ?? "").trim() || "Custom licence";
+  return TIER_LABEL[kind as TierKind] ?? String(kind);
+}
 
 export type PromoConfig = {
   type: "percent" | "bogo";
@@ -22,6 +31,10 @@ export type PromoConfig = {
   bogo_free: number;
   scope: "all" | "leases";
   exclude_exclusive: boolean;
+  /** Licence types the sale applies to. When set, this wins over scope/exclude_exclusive. */
+  scope_kinds?: string[] | null;
+  /** Specific tier ids the sale applies to (used to target individual custom licences). */
+  scope_tier_ids?: string[] | null;
   headline: string | null;
   active: boolean;
   ends_at: string | null;
@@ -32,6 +45,7 @@ export type CartLine = {
   tierId: string;
   title: string;
   tierKind: TierKind;
+  tierLabel?: string | null;
   unitPriceCents: number;
 };
 
@@ -53,6 +67,10 @@ export function promoIsLive(promo: PromoConfig | null | undefined, now = new Dat
 }
 
 function isEligible(line: CartLine, promo: PromoConfig): boolean {
+  const ids = promo.scope_tier_ids ?? null;
+  if (ids && ids.length > 0) return line.tierId ? ids.includes(line.tierId) : false;
+  const kinds = promo.scope_kinds ?? null;
+  if (kinds && kinds.length > 0) return kinds.includes(line.tierKind);
   if (promo.exclude_exclusive && line.tierKind === "exclusive") return false;
   if (promo.scope === "leases") return line.tierKind === "non_exclusive" || line.tierKind === "exclusive";
   return true;
@@ -62,7 +80,14 @@ export function promoHeadline(promo: PromoConfig | null | undefined): string | n
   if (!promoIsLive(promo)) return null;
   const p = promo as PromoConfig;
   if (p.headline?.trim()) return p.headline.trim();
-  if (p.type === "percent") return `${p.percent}% off${p.scope === "leases" ? " all leases" : " everything"}`;
+  const ids = p.scope_tier_ids ?? null;
+  const kinds = p.scope_kinds ?? null;
+  const where = ids && ids.length > 0
+    ? " on selected licences"
+    : kinds && kinds.length > 0 && kinds.length < TIER_KINDS.length
+      ? ` on ${kinds.map((k) => tierLabel(k).toLowerCase()).join(", ")}`
+      : p.scope === "leases" ? " all leases" : " everything";
+  if (p.type === "percent") return `${p.percent}% off${where}`;
   const free = p.bogo_free === 1 ? "get 1 free" : `get ${p.bogo_free} free`;
   return p.bogo_buy === 1 ? `Buy 1, ${free}` : `Buy ${p.bogo_buy}, ${free}`;
 }
@@ -72,11 +97,12 @@ export function displayPrice(
   priceCents: number,
   tierKind: TierKind,
   promo: PromoConfig | null | undefined,
+  tierId?: string,
 ): { priceCents: number; wasCents: number | null } {
   if (!promoIsLive(promo)) return { priceCents, wasCents: null };
   const p = promo as PromoConfig;
   if (p.type !== "percent") return { priceCents, wasCents: null };
-  if (!isEligible({ productId: "", tierId: "", title: "", tierKind, unitPriceCents: priceCents }, p)) {
+  if (!isEligible({ productId: "", tierId: tierId ?? "", title: "", tierKind, unitPriceCents: priceCents }, p)) {
     return { priceCents, wasCents: null };
   }
   const next = Math.max(0, Math.round(priceCents * (1 - p.percent / 100)));

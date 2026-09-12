@@ -20,15 +20,37 @@ export const Route = createFileRoute("/api/public/store/preview")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: product } = await supabaseAdmin
           .from("store_products")
-          .select("audio_path, audio_bucket, active, store_id")
+          .select("audio_path, audio_bucket, active, store_id, preview_mode, free_download_path")
           .eq("id", id)
           .maybeSingle();
         const p = product as Record<string, any> | null;
         if (!p?.active || !p.audio_path) return new Response("not found", { status: 404 });
 
         const { data: store } = await supabaseAdmin
-          .from("stores").select("published").eq("id", p.store_id).maybeSingle();
-        if (!(store as any)?.published) return new Response("not found", { status: 404 });
+          .from("stores").select("published, preview_mode").eq("id", p.store_id).maybeSingle();
+        const s = store as Record<string, any> | null;
+        if (!s?.published) return new Response("not found", { status: 404 });
+
+        // Resolve the preview style: per-product override wins over the store default.
+        const mode = p.preview_mode ?? s.preview_mode ?? "clip";
+
+        // Tagged mode streams the full voice-tagged file (safe to share in full).
+        if (mode === "tagged" && p.free_download_path) {
+          const { data: tagged } = await supabaseAdmin.storage
+            .from("store").download(p.free_download_path);
+          if (tagged) {
+            const bytes = new Uint8Array(await tagged.arrayBuffer());
+            return new Response(bytes, {
+              headers: {
+                "Content-Type": tagged.type || "audio/mpeg",
+                "Content-Length": String(bytes.byteLength),
+                "Cache-Control": "public, max-age=3600",
+                "Accept-Ranges": "none",
+              },
+            });
+          }
+          // No tagged file yet — fall through to the 45s clip.
+        }
 
         const { data: blob, error } = await supabaseAdmin.storage
           .from(p.audio_bucket || "audio").download(p.audio_path);

@@ -11,7 +11,7 @@ import { ShoppingCart, Download, Trash2, Loader2, Tag, Play, Pause, SkipBack, Sk
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { priceCart, money, displayPrice, TIER_LABEL, type CartLine, type PromoConfig, type TierKind } from "@/lib/store/pricing";
+import { priceCart, money, displayPrice, tierLabel, type CartLine, type PromoConfig, type TierKind } from "@/lib/store/pricing";
 import { applyMembership, planBlurb, type MemberState, type MembershipPlan } from "@/lib/store/membership";
 
 export const Route = createFileRoute("/store/$handle")({
@@ -99,8 +99,9 @@ function UnifiedPlayer({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const capped = track?.previewMode !== "tagged";
     const onTime = () => {
-      if (el.currentTime >= PREVIEW_SECONDS) {
+      if (capped && el.currentTime >= PREVIEW_SECONDS) {
         el.pause();
         el.currentTime = 0;
         setPos(0);
@@ -114,10 +115,12 @@ function UnifiedPlayer({
       el.removeEventListener("timeupdate", onTime);
       el.removeEventListener("ended", onEnd);
     };
-  }, [onSkip]);
+  }, [onSkip, track?.previewMode]);
 
   if (!track) return null;
-  const pct = Math.min(100, (pos / PREVIEW_SECONDS) * 100);
+  const tagged = track.previewMode === "tagged";
+  const span = tagged ? (ref.current?.duration || 0) || PREVIEW_SECONDS : PREVIEW_SECONDS;
+  const pct = Math.min(100, (pos / span) * 100);
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur">
@@ -150,7 +153,7 @@ function UnifiedPlayer({
           <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full transition-[width]" style={{ width: `${pct}%`, background: accent }} />
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">45-second preview</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">{tagged ? "Full preview with producer tag" : "45-second preview"}</p>
         </div>
 
         {track.tiers?.length ? (
@@ -163,7 +166,7 @@ function UnifiedPlayer({
             <DropdownMenuContent align="end">
               {track.tiers.map((t: Record<string, any>) => {
                 const kind = t.kind as TierKind;
-                const d = displayPrice(t.price_cents, kind, promo);
+                const d = displayPrice(t.price_cents, kind, promo, t.id);
                 return (
                   <DropdownMenuItem
                     key={t.id}
@@ -173,11 +176,12 @@ function UnifiedPlayer({
                         tierId: t.id,
                         title: track.title,
                         tierKind: kind,
+                        tierLabel: t.custom_label ?? null,
                         unitPriceCents: t.price_cents,
                       })
                     }
                   >
-                    {TIER_LABEL[kind] ?? kind} · {money(d.priceCents, currency)}
+                    {tierLabel(kind, t.custom_label)} · {money(d.priceCents, currency)}
                   </DropdownMenuItem>
                 );
               })}
@@ -338,7 +342,11 @@ function Storefront() {
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-10">
-        <h1 className="text-3xl font-semibold tracking-tight">{store!.name}</h1>
+        {store!.headline ? (
+          <h1 className="text-3xl font-semibold tracking-tight">{store!.headline}</h1>
+        ) : (
+          <h1 className="sr-only">{store!.name}</h1>
+        )}
         {store!.bio && <p className="mt-2 max-w-2xl text-muted-foreground">{store!.bio}</p>}
         {totals.promoLabel && (
           <div className="mt-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-white" style={{ background: accent }}>
@@ -400,11 +408,11 @@ function Storefront() {
                   <div className="space-y-1.5">
                     {p.tiers.map((t: Record<string, any>) => {
                       const kind = t.kind as TierKind;
-                      const d = displayPrice(t.price_cents, kind, promo as PromoConfig | null);
+                      const d = displayPrice(t.price_cents, kind, promo as PromoConfig | null, t.id);
                       return (
                         <div key={t.id} className="flex items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">
                           <div className="min-w-0">
-                            <p className="truncate text-sm">{TIER_LABEL[kind] ?? kind}</p>
+                            <p className="truncate text-sm">{tierLabel(kind, t.custom_label)}</p>
                             <p className="text-xs text-muted-foreground">
                               {d.wasCents !== null && <s className="mr-1 opacity-60">{money(d.wasCents, store!.currency)}</s>}
                               <span className="font-medium text-foreground">{money(d.priceCents, store!.currency)}</span>
@@ -415,7 +423,7 @@ function Storefront() {
                             size="sm"
                             style={{ background: accent }}
                             className="text-white hover:opacity-90"
-                            onClick={() => add({ productId: p.id, tierId: t.id, title: p.title, tierKind: kind, unitPriceCents: t.price_cents })}
+                            onClick={() => add({ productId: p.id, tierId: t.id, title: p.title, tierKind: kind, tierLabel: t.custom_label ?? null, unitPriceCents: t.price_cents })}
                           >
                             Add
                           </Button>
@@ -530,7 +538,7 @@ function CartDialog({
                 <div key={l.tierId} className="flex items-center justify-between gap-3 rounded-md border border-border/50 px-3 py-2 text-sm">
                   <div className="min-w-0">
                     <p className="truncate">{l.title}</p>
-                    <p className="text-xs text-muted-foreground">{TIER_LABEL[l.tierKind]}</p>
+                    <p className="text-xs text-muted-foreground">{tierLabel(l.tierKind, l.tierLabel)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={l.priceCents === 0 ? "text-emerald-500" : ""}>
